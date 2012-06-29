@@ -109,6 +109,23 @@ function gfMap(options) {
 				};
 				return markers
 			},map)
+
+			map.center = ko.computed(function() {
+				var gMap = this.gMap()
+				if( typeof gMap != 'undefined' ) {
+						var points = this.points(),
+							allLats = this.points().map( function(el) { return parseFloat(el.lat) }),
+							allLngs = this.points().map( function(el) { return parseFloat(el.lng) }),
+							newCenter = new google.maps.LatLng( ( Math.max.apply(Math, allLats) + Math.min.apply(Math, allLats) ) / 2, ( Math.max.apply(Math, allLngs) + Math.min.apply(Math, allLngs) ) / 2 )
+
+					 	gMap.setCenter(newCenter)
+
+						return newCenter
+				}
+			},map)
+
+	}
+
 		map.setMap = function(id) {
 			map.div( id )
 		}
@@ -126,6 +143,7 @@ function gfMap(options) {
 			map.setMap( element )
 		}
 	};
+
 
 
 	if( typeof this.constructor.map == 'undefined' || typeof google == 'undefined' ) {

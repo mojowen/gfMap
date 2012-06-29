@@ -88,6 +88,27 @@ function gfMap(options) {
 				if( div.nodeType === 1  ) return new google.maps.Map( this.div(), this.mapOptions )
 			},map)
 
+			map.points = ko.computed(function() {
+				var rawPoints = ko.toJS( this.rawPoints ), gMap = this.gMap(),  markers = []
+				for (var i=0; i < rawPoints.length; i++) {
+					var latlng = ko.toJS( rawPoints[i][this.field] ).latlng
+					if( latlng != '' ) {
+						var parse = latlng.split(','),
+							point = new google.maps.LatLng(parse[0], parse[1])
+						markers.push( {
+							lat: parse[0],
+							lng: parse[1],
+							point: new google.maps.Marker({
+								position: point,
+								map: gMap,
+								draggable: false,
+								animation: google.maps.Animation.DROP
+							})
+						});
+					}
+				};
+				return markers
+			},map)
 		map.setMap = function(id) {
 			map.div( id )
 		}

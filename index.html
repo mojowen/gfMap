@@ -25,7 +25,27 @@
 
 <script type="text/javascript" charset="utf-8">
 	new gfMap()
-	gfMap.map.makeMap(_rows,'location',{obj:'map'})
+	gfMap.map.makeMap(_rows,'location', {
+		obj:'map',
+		infoContent: function(row) { 
+			var content = ''
+			for (var i=0; i < _fields.length; i++) {
+				var field = _fields[i], value = ''
+				switch(field.type) {
+					case 'array':
+						value = row[field.name].join(', ')
+						break;
+					case 'location':
+						value = row[field.name].address
+						break;
+					default:
+						value = row[field.name]
+				}
+				content+= '<strong>'+field.name +'</strong>: '+value+'<br />'
+			}
+			return content
+		}
+	})
 	ko.applyBindings(map)
 </script>
 </body>

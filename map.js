@@ -74,6 +74,9 @@ function gfMap(options) {
 			scope = typeof options.obj == 'string' ? window[obj] : obj,
 			map = new gfMapped( data, field, typeof scope == 'undefined' || typeof scope.div == 'undefined' ? ko.observable('') : scope.div )
 
+		map.infoContent = options.infoContent && typeof options.infoContent == 'function' ? options.infoContent : function() { return '' }
+		map.markers = []
+
 		if( ! this.ready() ) {
 			this.mapMakingQueue.push( [data, field, options] )
 		} else {
@@ -88,26 +91,46 @@ function gfMap(options) {
 				if( div.nodeType === 1  ) return new google.maps.Map( this.div(), this.mapOptions )
 			},map)
 
+			map.info = new google.maps.InfoWindow({
+				content: '',
+				maxWidth: 200
+			});
+
 			map.points = ko.computed(function() {
-				var rawPoints = ko.toJS( this.rawPoints ), gMap = this.gMap(),  markers = []
+				var rawPoints = ko.toJS( this.rawPoints ), gMap = this.gMap()
+				for (var i=0; i < this.markers.length; i++) {
+					this.markers[i].point.setMap(null)
+				};
 				for (var i=0; i < rawPoints.length; i++) {
-					var latlng = ko.toJS( rawPoints[i][this.field] ).latlng
+					var row = rawPoints[i], latlng = row[this.field].latlng
 					if( latlng != '' ) {
 						var parse = latlng.split(','),
-							point = new google.maps.LatLng(parse[0], parse[1])
-						markers.push( {
-							lat: parse[0],
-							lng: parse[1],
-							point: new google.maps.Marker({
+							point = new google.maps.LatLng(parse[0], parse[1]),
+							content = this.infoContent(row)
+							gPoint =  new google.maps.Marker({
 								position: point,
 								map: gMap,
 								draggable: false,
-								animation: google.maps.Animation.DROP
+								animation: google.maps.Animation.DROP,
+								content: content
 							})
+
+						if( content != '' ) {
+							info = this.info
+							google.maps.event.addListener( gPoint, 'click', function() {
+								info.setContent(this.content)
+								info.open(gMap,this)
+							})
+						} 
+
+						this.markers.push( {
+							lat: parse[0],
+							lng: parse[1],
+							point:gPoint
 						});
 					}
 				};
-				return markers
+				return this.markers
 			},map)
 
 			map.centerAndZoom = ko.computed(function() {

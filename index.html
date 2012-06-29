@@ -20,12 +20,13 @@
 	
 </head>
 <body>
-	<div style="border: 2px solid #ddd" data-bind="gfMap: map"></div>
+	<div style="border: 2px solid #ddd; width: 500px; height: 400px;" data-bind="gfMap: map"></div>
 
 
 <script type="text/javascript" charset="utf-8">
-
-	ko.applyBindings(graph)
+	new gfMap()
+	gfMap.map.makeMap(_rows,'location',{obj:'map'})
+	ko.applyBindings(map)
 </script>
 </body>
 </html>

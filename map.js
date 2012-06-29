@@ -1,20 +1,16 @@
 function gfMap(options) {
 	this.ready = ko.observable(false)
 	this.geolocationQueue = ko.observableArray([])
+	this.mapMakingQueue = ko.observableArray([])
+	this.maps
 
-	if( typeof map == 'undefined' || typeof google == 'undefined' ) {
-		var script = document.createElement('script');
-			script.type = 'text/javascript';
-			script.src = 'https://maps.googleapis.com/maps/api/js?sensor=true&callback=map.start';
-			document.body.appendChild(script);
-			map = this;
-	}
 	
 	this.start = function() {
 		this.geocoder = new google.maps.Geocoder()
 		this.maps = []
 		this.ready(true)
 	}
+
 	function parseLocation(location) {
 		var latlng = []; 
 		for( var i in location ) { 
@@ -33,6 +29,7 @@ function gfMap(options) {
 	this.geolocater = ko.computed( function() {
 		var queue = this.geolocationQueue, flatQueue = queue()
 		if( this.ready() && flatQueue.length > 0 ) {
+			if( typeof google == 'undefined' ) throw 'No Google!'
 			for (var i=0; i < flatQueue.length; i++) {
 				var observable = flatQueue[i].observable, address = flatQueue[i].address
 				queue.remove( queue[i] )
@@ -54,6 +51,69 @@ function gfMap(options) {
 		}
 	},this)
 
-	return map;
+	this.mapper = ko.computed( function() {
+		var queue = this.mapMakingQueue()
+		if( this.ready() && queue.length > 0 ) {
+			for (var i=0; i < queue.length; i++) {
+				this.makeMap(queue[i][0],queue[i][1],queue[i][2])
+			};
+		}
+	},this)
+
+	function gfMapped(rows, field, div) {
+		this.rawPoints = rows
+		this.field = field
+		this.div = div
+		return this
+	}
+
+
+	this.makeMap = function(data, field, options)  {
+		var options = options || {},
+			obj = options.obj || {},
+			scope = typeof options.obj == 'string' ? window[obj] : obj,
+			map = new gfMapped( data, field, typeof scope == 'undefined' || typeof scope.div == 'undefined' ? ko.observable('') : scope.div )
+
+		if( ! this.ready() ) {
+			this.mapMakingQueue.push( [data, field, options] )
+		} else {
+			map.mapOptions = {
+				zoom: 4,
+				mapTypeId: google.maps.MapTypeId.ROADMAP,
+				center: new google.maps.LatLng(45, -122)
+			}
+
+			map.gMap = ko.computed(function() {
+				var div = this.div()
+				if( div.nodeType === 1  ) return new google.maps.Map( this.div(), this.mapOptions )
+			},map)
+
+		map.setMap = function(id) {
+			map.div( id )
+		}
+
+		if( typeof obj == 'string' ) return window[obj] = map
+		else return scope = map
+	}
+
+	ko.bindingHandlers.gfMap = {
+		init: function(element,valueAccessor) {
+			var map = valueAccessor()
+			if( element.id == '' ) {
+				element.id = 'gfMap_'+new Date().getTime()
+			}
+			map.setMap( element )
+		}
+	};
+
+
+	if( typeof this.constructor.map == 'undefined' || typeof google == 'undefined' ) {
+		var script = document.createElement('script');
+			script.type = 'text/javascript';
+			script.src = 'https://maps.googleapis.com/maps/api/js?sensor=true&callback=gfMap.map.start';
+			document.body.appendChild(script);
+			return this.constructor.map = this;
+	}
+
 
 }

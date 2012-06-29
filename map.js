@@ -110,17 +110,30 @@ function gfMap(options) {
 				return markers
 			},map)
 
-			map.center = ko.computed(function() {
+			map.centerAndZoom = ko.computed(function() {
 				var gMap = this.gMap()
 				if( typeof gMap != 'undefined' ) {
 						var points = this.points(),
 							allLats = this.points().map( function(el) { return parseFloat(el.lat) }),
 							allLngs = this.points().map( function(el) { return parseFloat(el.lng) }),
-							newCenter = new google.maps.LatLng( ( Math.max.apply(Math, allLats) + Math.min.apply(Math, allLats) ) / 2, ( Math.max.apply(Math, allLngs) + Math.min.apply(Math, allLngs) ) / 2 )
+							maxLats = Math.max.apply(Math, allLats),
+							minLats = Math.min.apply(Math, allLats),
+							maxLngs =  Math.max.apply(Math, allLngs),
+							minLngs = Math.min.apply(Math, allLngs),
+							globe = 256,
+							angleLng = maxLngs - minLngs,
+							angleLng = angleLng < 0 ? angleLng + 360 : angleLng,
+							angleLat = maxLats - minLats
+							angle = angleLng > angleLat ? angleLng : angleLat,
+
+							newCenter = new google.maps.LatLng( ( maxLats + minLats ) / 2, ( maxLngs + minLngs ) / 2 ),
+
+							newZoom = Math.floor(Math.log(960 * 360 / angle / globe) / Math.LN2) - 1
 
 					 	gMap.setCenter(newCenter)
+					 	gMap.setZoom(newZoom)
 
-						return newCenter
+						return {center: newCenter, zoom: newZoom }
 				}
 			},map)
 

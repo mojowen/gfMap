@@ -74,100 +74,103 @@ function gfMap(options) {
 			scope = typeof options.obj == 'string' ? window[obj] : obj,
 			map = new gfMapped( data, field, typeof scope == 'undefined' || typeof scope.div == 'undefined' ? ko.observable('') : scope.div )
 
-		map.infoContent = options.infoContent && typeof options.infoContent == 'function' ? options.infoContent : function() { return '' }
-		map.markers = []
+	map.infoContent = options.infoContent && typeof options.infoContent == 'function' ? options.infoContent : function() { return '' }
+	map.markers = []
 
-		if( ! this.ready() ) {
-			this.mapMakingQueue.push( [data, field, options] )
-		} else {
-			map.mapOptions = {
-				zoom: 4,
-				mapTypeId: google.maps.MapTypeId.ROADMAP,
-				center: new google.maps.LatLng(45, -122)
+
+	var ready = this.ready
+	map.mapOptions = ko.computed( function() { 
+		if( ready() ) return {
+			zoom: 4,
+			mapTypeId: google.maps.MapTypeId.ROADMAP,
+			center: new google.maps.LatLng(45, -122)
+		}
+	},this)
+
+	map.gMap = ko.computed(function() {
+		var div = this.div()
+		if( div.nodeType === 1 && ready() ) return new google.maps.Map( this.div(), this.mapOptions() )
+	},map)
+
+	map.info = ko.computed( function() { 
+		if( ready() ) return new google.maps.InfoWindow({
+			content: '',
+			maxWidth: 200
+		});
+	},this)
+
+	map.points = ko.computed(function() {
+		if( !ready() ) return []
+		var rawPoints = ko.toJS( this.rawPoints ), gMap = this.gMap()
+		for (var i=0; i < this.markers.length; i++) {
+			this.markers[i].point.setMap(null)
+		};
+		for (var i=0; i < rawPoints.length; i++) {
+			var row = rawPoints[i], latlng = row[this.field].latlng
+			if( latlng != '' ) {
+				var parse = latlng.split(','),
+					point = new google.maps.LatLng(parse[0], parse[1]),
+					content = this.infoContent(row)
+					gPoint =  new google.maps.Marker({
+						position: point,
+						map: gMap,
+						draggable: false,
+						animation: google.maps.Animation.DROP,
+						content: content
+					})
+
+				if( content != '' ) {
+					info = this.info()
+					google.maps.event.addListener( gPoint, 'click', function() {
+						info.setContent(this.content)
+						info.open(gMap,this)
+					})
+				} 
+
+				this.markers.push( {
+					lat: parse[0],
+					lng: parse[1],
+					point:gPoint
+				});
 			}
+		};
+		return this.markers
+	},map)
 
-			map.gMap = ko.computed(function() {
-				var div = this.div()
-				if( div.nodeType === 1  ) return new google.maps.Map( this.div(), this.mapOptions )
-			},map)
+	map.centerAndZoom = ko.computed(function() {
+		var gMap = this.gMap()
+		if( typeof gMap != 'undefined' ) {
+				var points = this.points(),
+					allLats = this.points().map( function(el) { return parseFloat(el.lat) }),
+					allLngs = this.points().map( function(el) { return parseFloat(el.lng) }),
+					maxLats = Math.max.apply(Math, allLats),
+					minLats = Math.min.apply(Math, allLats),
+					maxLngs =  Math.max.apply(Math, allLngs),
+					minLngs = Math.min.apply(Math, allLngs),
+					globe = 256,
+					angleLng = maxLngs - minLngs,
+					angleLng = angleLng < 0 ? angleLng + 360 : angleLng,
+					angleLat = maxLats - minLats
+					angle = angleLng > angleLat ? angleLng : angleLat,
 
-			map.info = new google.maps.InfoWindow({
-				content: '',
-				maxWidth: 200
-			});
+					newCenter = new google.maps.LatLng( ( maxLats + minLats ) / 2, ( maxLngs + minLngs ) / 2 ),
 
-			map.points = ko.computed(function() {
-				var rawPoints = ko.toJS( this.rawPoints ), gMap = this.gMap()
-				for (var i=0; i < this.markers.length; i++) {
-					this.markers[i].point.setMap(null)
-				};
-				for (var i=0; i < rawPoints.length; i++) {
-					var row = rawPoints[i], latlng = row[this.field].latlng
-					if( latlng != '' ) {
-						var parse = latlng.split(','),
-							point = new google.maps.LatLng(parse[0], parse[1]),
-							content = this.infoContent(row)
-							gPoint =  new google.maps.Marker({
-								position: point,
-								map: gMap,
-								draggable: false,
-								animation: google.maps.Animation.DROP,
-								content: content
-							})
+					newZoom = Math.floor(Math.log(960 * 360 / angle / globe) / Math.LN2) - 2
 
-						if( content != '' ) {
-							info = this.info
-							google.maps.event.addListener( gPoint, 'click', function() {
-								info.setContent(this.content)
-								info.open(gMap,this)
-							})
-						} 
+			 	gMap.setCenter(newCenter)
+			 	gMap.setZoom(newZoom)
 
-						this.markers.push( {
-							lat: parse[0],
-							lng: parse[1],
-							point:gPoint
-						});
-					}
-				};
-				return this.markers
-			},map)
+				return {center: newCenter, zoom: newZoom }
+		}
+	},map)
 
-			map.centerAndZoom = ko.computed(function() {
-				var gMap = this.gMap()
-				if( typeof gMap != 'undefined' ) {
-						var points = this.points(),
-							allLats = this.points().map( function(el) { return parseFloat(el.lat) }),
-							allLngs = this.points().map( function(el) { return parseFloat(el.lng) }),
-							maxLats = Math.max.apply(Math, allLats),
-							minLats = Math.min.apply(Math, allLats),
-							maxLngs =  Math.max.apply(Math, allLngs),
-							minLngs = Math.min.apply(Math, allLngs),
-							globe = 256,
-							angleLng = maxLngs - minLngs,
-							angleLng = angleLng < 0 ? angleLng + 360 : angleLng,
-							angleLat = maxLats - minLats
-							angle = angleLng > angleLat ? angleLng : angleLat,
-
-							newCenter = new google.maps.LatLng( ( maxLats + minLats ) / 2, ( maxLngs + minLngs ) / 2 ),
-
-							newZoom = Math.floor(Math.log(960 * 360 / angle / globe) / Math.LN2) - 1
-
-					 	gMap.setCenter(newCenter)
-					 	gMap.setZoom(newZoom)
-
-						return {center: newCenter, zoom: newZoom }
-				}
-			},map)
-
-	}
 
 		map.setMap = function(id) {
 			map.div( id )
 		}
 
 		if( typeof obj == 'string' ) return window[obj] = map
-		else return scope = map
+		else { return map }
 	}
 
 	ko.bindingHandlers.gfMap = {
